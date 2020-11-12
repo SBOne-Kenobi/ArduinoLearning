@@ -73,9 +73,7 @@ uint8_t digits[10] = {
 void sendData(uint8_t x) {
   set(DS, x);
   set(SH_CP, 1);
-  _delay_us(10);
   set(SH_CP, 0);
-  _delay_us(10);
 }
 
 void sendPack(uint8_t n) {
@@ -84,22 +82,10 @@ void sendPack(uint8_t n) {
     n >>= 1u;
   }
   set(ST_CP, 1);
-  _delay_us(20);
   set(ST_CP, 0);
 }
 
-void init() {
-  DDRD = 0b00111000;
-  DS = make_item(&PORTD, 5);
-  ST_CP = make_item(&PORTD, 4);
-  SH_CP = make_item(&PORTD, 3);
-  PORTD |= (1u << 2u);
-  interrupt_button = make_c_item(&PIND, 2);
-
-  set(SH_CP, 0);
-  set(ST_CP, 0);
-  sendPack(digits[0]);
-
+void init_timers() {
   cli();
   TCCR1A = 0;
   TCCR1B = 0;
@@ -115,21 +101,39 @@ void init() {
   sei();
 }
 
+void init() {
+  DDRD = 0b00111000;
+  DS = make_item(&PORTD, 5);
+  ST_CP = make_item(&PORTD, 4);
+  SH_CP = make_item(&PORTD, 3);
+  PORTD |= (1u << 2u);
+  interrupt_button = make_c_item(&PIND, 2);
+
+  set(SH_CP, 0);
+  set(ST_CP, 0);
+  sendPack(digits[0]);
+
+  init_timers();
+}
+
 volatile uint8_t cur_time = 0;
 
 ISR(TIMER1_COMPA_vect) {
   cur_time = (cur_time + 1) % 10;
-  sendPack(digits[cur_time]);
 }
 
 ISR(INT0_vect) {
   cur_time = 0;
-  sendPack(digits[0]);
   TCNT1 = 0;
+}
+
+void loop() {
+  sendPack(digits[cur_time]);
+  _delay_ms(10);
 }
 
 int main() {
   init();
-  while (1);
+  while (1) loop();
   return 0;
 }
